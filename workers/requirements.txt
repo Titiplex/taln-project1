@@ -1,0 +1,3 @@
+acl-anthology==0.5.3
+typer
+py4j>=0.10.9.9
