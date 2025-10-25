@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -29,7 +30,7 @@ public class OpenAlexService {
         String d = raw.trim().toLowerCase();
         d = d.replaceFirst("^https?://(dx\\.)?doi\\.org/", "");
         if (d.isBlank()) return null;
-        return java.net.URLEncoder.encode(d, java.nio.charset.StandardCharsets.UTF_8);
+        return java.net.URLEncoder.encode(d, StandardCharsets.UTF_8);
     }
 
     private Optional<Tuple> fetch(String url) {
