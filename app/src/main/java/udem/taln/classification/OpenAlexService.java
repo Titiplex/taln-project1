@@ -33,7 +33,7 @@ public class OpenAlexService {
     private final AtomicInteger tokens = new AtomicInteger(0);
     private volatile int burstSize = 24;
 
-    public record Tuple(String openAlexId, Integer citedNumber) {
+    public record Tuple(String openAlexId, Integer citedNumber, List<String> referencedWorks) {
     }
 
     public OpenAlexService(String mailto, int maxParallel, int memCacheSize, Path diskCacheDir) {
@@ -162,6 +162,13 @@ public class OpenAlexService {
                 String idUrl = asText(r.get("id"));
                 Integer cited = r.has("cited_by_count") && !r.get("cited_by_count").isNull()
                         ? r.get("cited_by_count").asInt() : null;
+
+                List<String> refs = new ArrayList<>();
+                JsonNode rw = r.get("referenced_works");
+                if (rw != null && rw.isArray()) {
+                    for (JsonNode x : rw) refs.add(trimOpenAlexId(asText(x)));
+                }
+
                 if (doiField == null || idUrl == null) {
                     skipped++;
                     continue;
@@ -179,7 +186,7 @@ public class OpenAlexService {
                     continue;
                 }
 
-                var tuple = new OpenAlexService.Tuple(openAlexId, cited);
+                var tuple = new OpenAlexService.Tuple(openAlexId, cited, refs);
 
                 saveCached(canonical, tuple);
                 out.put(canonical, tuple);
@@ -230,8 +237,13 @@ public class OpenAlexService {
                         Integer cited = r.has("cited_by_count") && !r.get("cited_by_count").isNull()
                                 ? r.get("cited_by_count").asInt() : null;
                         if (idUrl == null) return null;
+                        List<String> refs = new ArrayList<>();
+                        JsonNode rw = r.get("referenced_works");
+                        if (rw != null && rw.isArray()) {
+                            for (JsonNode x : rw) refs.add(trimOpenAlexId(asText(x)));
+                        }
                         String openAlexId = trimOpenAlexId(idUrl);
-                        var tuple = new OpenAlexService.Tuple(openAlexId, cited);
+                        var tuple = new OpenAlexService.Tuple(openAlexId, cited, refs);
                         writeDiskCache(canonicalDoi, tuple);
                         return tuple;
                     }
@@ -309,7 +321,25 @@ public class OpenAlexService {
             String id = asText(node.get("openAlexId"));
             Integer c = node.has("citedNumber") && !node.get("citedNumber").isNull()
                     ? node.get("citedNumber").asInt() : null;
-            return (id == null ? null : new OpenAlexService.Tuple(id, c));
+
+            List<String> refs = new ArrayList<>();
+            JsonNode rw = node.has("referencedWorks") ? node.get("referencedWorks")
+                    : (node.has("referenced_works") ? node.get("referenced_works") : null);
+
+            if (rw != null && rw.isArray()) {
+                for (JsonNode x : rw) {
+                    String s = asText(x);
+                    if (s == null || s.isBlank()) continue;
+                    String tid = trimOpenAlexId(s);
+                    if (tid != null && !tid.isBlank()) refs.add(tid);
+                }
+            }
+
+            if (!refs.isEmpty()) {
+                refs = new ArrayList<>(new LinkedHashSet<>(refs));
+            }
+
+            return (id == null ? null : new OpenAlexService.Tuple(id, c, refs));
         } catch (IOException e) {
             return null;
         }
@@ -320,7 +350,16 @@ public class OpenAlexService {
         Path f = diskCacheDir.resolve(hash(doi) + ".json");
         try {
             Files.createDirectories(f.getParent());
-            var node = Map.of("doi", doi, "openAlexId", v.openAlexId(), "citedNumber", v.citedNumber());
+
+            List<String> cleanRefs = (v.referencedWorks() == null) ? List.of()
+                    : v.referencedWorks().stream()
+                    .filter(Objects::nonNull)
+                    .map(OpenAlexService::trimOpenAlexId)
+                    .filter(s -> s != null && !s.isBlank())
+                    .distinct()
+                    .toList();
+
+            var node = Map.of("doi", doi, "openAlexId", v.openAlexId(), "citedNumber", v.citedNumber(), "referencedWorks", cleanRefs);
             Files.writeString(f, M.writeValueAsString(node), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         } catch (IOException ignored) {
         }

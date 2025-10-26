@@ -180,7 +180,8 @@ def harvest(year_from: int, year_to: int) -> List[Dict[str, Any]]:
             "citedByCount": None,
             "isClassificationCandidate": None,
             "isDatasetOrBenchmarkCandidate": None,
-            "signals": None
+            "signals": None,
+            "referencedWorks": None
         }
         if rec["id"] and rec["title"]:
             out.append(rec)

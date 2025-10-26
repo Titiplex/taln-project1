@@ -22,6 +22,7 @@ public record PaperDto(
         // Flags/metadata internes
         Boolean isClassificationCandidate,
         Boolean isDatasetOrBenchmarkCandidate,
-        SignalsDto signals
+        SignalsDto signals,
+        List<String> referencedWorks
 ) {
 }

@@ -1,10 +1,16 @@
 package udem.taln.classification;
 
+import org.jgrapht.Graph;
+import org.jgrapht.graph.DefaultWeightedEdge;
+import udem.taln.classification.graph.core.*;
+import udem.taln.classification.graph.embed.EmbeddingService;
+import udem.taln.classification.graph.embed.HttpEmbeddingService;
+import udem.taln.utils.Maths;
 import udem.taln.wrapper.dto.PaperDto;
 
+import java.io.File;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class ClassificationService {
@@ -108,7 +114,8 @@ public class ClassificationService {
                     (t != null ? t.citedNumber() : p.citedByCount()),
                     isClassification(p.title(), p.abs()),
                     mentionsDatasetOrBenchmark(p.title(), p.abs()),
-                    p.signals()
+                    p.signals(),
+                    (t != null ? t.referencedWorks() : List.of())
             );
         }).toList();
     }
@@ -143,5 +150,69 @@ public class ClassificationService {
     private static boolean any(String s) {
         for (var p : ClassificationService.BENCH) if (p.matcher(s).find()) return true;
         return false;
+    }
+
+    public static class Result {
+        public Graph<String, DefaultWeightedEdge> fusedGraph;
+        public Map<String, Integer> community;
+        public Map<String, Double> finalScore;
+    }
+
+    public static Result run(List<PaperDto> papers) throws Exception {
+        EmbeddingService embedder = new HttpEmbeddingService("http://localhost:8000/embed");
+        Map<String, float[]> embs = new HashMap<>();
+        for (var p : papers) {
+            var text = (p.title() == null ? "" : p.title()) + ". " + (p.abs() == null ? "" : p.abs());
+            embs.put(p.openAlexId(), embedder.embed(text));
+        }
+
+        int dim = embs.values().iterator().next().length;
+        var index = new KnnIndex(dim);
+        for (var e : embs.entrySet()) index.add(e.getKey(), e.getValue());
+
+        var citation = GraphBuilder.buildCitationGraph(papers);
+        var semantic = GraphBuilder.buildSemanticGraph(embs, index, /*topK=*/20, /*tau=*/0.40);
+        var fused = GraphBuilder.fuseGraphs(semantic, citation, /*alpha=*/1.0, /*beta=*/0.2);
+
+        var comm = LabelPropagation.detect(fused, 10);
+
+        String query = "text classification, datasets, benchmarks, NLP";
+        float[] qv = embedder.embed(query);
+        Map<String, Double> simToQuery = new HashMap<>();
+        for (var e : embs.entrySet()) {
+            simToQuery.put(e.getKey(), Maths.cosine(e.getValue(), qv));
+        }
+
+        var pr = Ranking.pagerank(citation, 0.85);
+        var recency = Ranking.recency(papers, 2025, 0.20);
+        var logCites = Ranking.logCitations(papers);
+        var venue = Ranking.venueBonus(papers, Set.of("acl", "emnlp", "naacl", "coling", "neurips", "icml"));
+        var bench = Ranking.benchmarkFlag(papers);
+
+        var score = Ranking.score(papers, simToQuery, pr, recency, logCites, venue, bench);
+
+        Map<String, Map<String, String>> attrs = new HashMap<>();
+        Map<String, PaperDto> byId = new HashMap<>();
+        for (var p : papers) byId.put(p.openAlexId(), p);
+        for (String id : fused.vertexSet()) {
+            var p = byId.get(id);
+            Map<String, String> a = new LinkedHashMap<>();
+            a.put("label", p != null && p.title() != null ? p.title() : id);
+            a.put("community", String.valueOf(comm.getOrDefault(id, -1)));
+            a.put("score", String.format(Locale.ROOT, "%.6f", score.getOrDefault(id, 0.0)));
+            a.put("year", String.valueOf(p != null ? p.year() : null));
+            a.put("venue", p != null ? String.valueOf(p.venue()) : "");
+            a.put("cited_by", String.valueOf(p != null ? p.citedByCount() : null));
+            attrs.put(id, a);
+        }
+        Exporters.exportGraphML(fused, attrs, new File("graph-fused.graphml"));
+        Exporters.exportNodesCsv(fused.vertexSet(), attrs::get, new File("nodes.csv"));
+        Exporters.exportEdgesCsv(fused, new File("edges.csv"));
+
+        var r = new Result();
+        r.fusedGraph = fused;
+        r.community = comm;
+        r.finalScore = score;
+        return r;
     }
 }
