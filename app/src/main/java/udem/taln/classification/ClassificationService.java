@@ -4,9 +4,10 @@ import org.jgrapht.Graph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import udem.taln.classification.graph.core.*;
 import udem.taln.classification.graph.embed.EmbeddingService;
-import udem.taln.classification.graph.embed.HttpEmbeddingService;
+import udem.taln.classification.graph.embed.PyEmbeddingService;
 import udem.taln.utils.Maths;
 import udem.taln.wrapper.dto.PaperDto;
+import udem.taln.wrapper.vectors.VectorsWService;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -159,11 +160,11 @@ public class ClassificationService {
     }
 
     public static Result run(List<PaperDto> papers) throws Exception {
-        EmbeddingService embedder = new HttpEmbeddingService("http://localhost:8000/embed");
+        VectorsWService embedder = new VectorsWService();
         Map<String, float[]> embs = new HashMap<>();
         for (var p : papers) {
             var text = (p.title() == null ? "" : p.title()) + ". " + (p.abs() == null ? "" : p.abs());
-            embs.put(p.openAlexId(), embedder.embed(text));
+            embs.put(p.openAlexId(), embedder.getVector(text));
         }
 
         int dim = embs.values().iterator().next().length;
