@@ -1,9 +1,15 @@
 package udem.taln.wrapper;
 
-public class EntryPoint {
-    private volatile ACLInterface py;
+public class EntryPoint<T extends GenInterface> {
+    private volatile T py;
 
-    public void registerPythonObject(ACLInterface obj) {
+    /**
+     * Is used in the python side, don't suppress
+     *
+     * @param obj
+     */
+    @SuppressWarnings("unused")
+    public void registerPythonObject(T obj) {
         this.py = obj;
     }
 
@@ -11,7 +17,7 @@ public class EntryPoint {
         return py != null;
     }
 
-    public ACLInterface acl() {
+    public T interfaceObject() {
         return py;
     }
 }

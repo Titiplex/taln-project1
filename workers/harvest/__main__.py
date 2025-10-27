@@ -192,7 +192,7 @@ def harvest(year_from: int, year_to: int) -> List[Dict[str, Any]]:
 
 class EndPoint(object):
     class Java:
-        implements = ['udem.taln.wrapper.ACLInterface']
+        implements = ['udem.taln.wrapper.papers.ACLInterface']
 
     @staticmethod
     def getPapers(year_from: int, year_to: int) -> str:

@@ -2,7 +2,7 @@ package udem.taln;
 
 import udem.taln.classification.ClassificationService;
 import udem.taln.utils.FileService;
-import udem.taln.wrapper.PapersWService;
+import udem.taln.wrapper.papers.PapersWService;
 import udem.taln.wrapper.dto.PaperDto;
 
 import java.io.File;

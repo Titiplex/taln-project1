@@ -17,7 +17,7 @@ public class PythonLauncher {
         this.SCRIPT_FILE = scriptFile;
     }
 
-    public PythonLauncher() {
+    public PythonLauncher(String scriptFile) {
         String os = System.getProperty("os.name").toLowerCase();
         String defaultCmd;
         if (os.contains("win")) {
@@ -26,7 +26,7 @@ public class PythonLauncher {
             defaultCmd = "workers/.venv/bin/python";
         }
         this.PYTHON_CMD = defaultCmd;
-        this.SCRIPT_FILE = new File("workers/harvest/__main__.py");
+        this.SCRIPT_FILE = new File(scriptFile);
     }
 
     public synchronized void start() throws IOException {

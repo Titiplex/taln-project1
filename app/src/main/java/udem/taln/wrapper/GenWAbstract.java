@@ -1,28 +1,15 @@
 package udem.taln.wrapper;
 
-import udem.taln.utils.FileService;
-import udem.taln.wrapper.dto.PaperDto;
-import udem.taln.wrapper.parsers.WrapperParsers;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
 import java.time.Duration;
-import java.util.List;
 import java.util.function.Supplier;
 
-public class PapersWService implements AutoCloseable {
-    private final WrapperGatewayServer gateway = new WrapperGatewayServer();
+public abstract class GenWAbstract<T extends GenInterface> implements AutoCloseable {
+    private final WrapperGatewayServer<T> gateway = new WrapperGatewayServer<>();
     private final PythonLauncher python;
     private volatile boolean started;
 
-    public PapersWService(String pythonCmd, String pythonScriptPath) {
-        this.python = new PythonLauncher(pythonCmd, new File(pythonScriptPath));
-    }
-
-    public PapersWService() {
-        this.python = new PythonLauncher();
+    public GenWAbstract(String scriptFile) {
+        this.python = new PythonLauncher(scriptFile);
     }
 
     /**
@@ -81,35 +68,18 @@ public class PapersWService implements AutoCloseable {
         return false;
     }
 
-    public List<PaperDto> getPapers() {
-        return withRetry(() -> {
-            var json = requiredPy().getPapers(1976, 2025);
-            String preview = (json == null) ? "null" : json.replaceAll("\\s+", " ").trim();
-            if (preview.length() > 200) preview = preview.substring(0, 200) + "...";
-            System.out.println("[PapersWService] Received JSON preview: " + preview);
-            if (json != null) {
-                try {
-                    FileService.printToFile("data/raw/papers.jsonl", json);
-                } catch (IOException e) {
-                    System.err.println("[PapersWService] Failed to write papers.jsonl: " + e.getMessage());
-                }
-            }
-            return WrapperParsers.parsePapers(json);
-        });
-    }
-
-    private ACLInterface requiredPy() {
+    protected T requiredPy() {
         var ep = gateway.entry();
         if (ep == null || !ep.isPythonRegistered()) {
             throw new IllegalStateException("Python object not registered yet. Ensure Python process is running and spaCy models are loaded.");
         }
-        return ep.acl();
+        return ep.interfaceObject();
     }
 
     /**
      * 3 times retry to support slowness and occasional errors.
      */
-    private static <T> T withRetry(Supplier<T> fn) {
+    protected static <I> I withRetry(Supplier<I> fn) {
         RuntimeException last = null;
         for (int i = 0; i < 3; i++) {
             try {
