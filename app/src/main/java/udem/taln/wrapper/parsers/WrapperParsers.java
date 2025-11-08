@@ -63,7 +63,7 @@ public class WrapperParsers {
 
     public static float[] parseVec(String json) {
         try {
-            var node = MAPPER_VEC.readTree(json).get("embedding");
+            var node = MAPPER_VEC.readTree(json).get("vector");
             float[] v = new float[node.size()];
             for (int i = 0; i < v.length; i++) v[i] = (float) node.get(i).asDouble();
             return v;

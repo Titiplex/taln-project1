@@ -11,9 +11,9 @@ public class VectorsWService extends GenWAbstract<VecInterface> {
     public float[] getVector(String text) {
         return withRetry(() -> {
             var json = requiredPy().getVector(text);
-            String preview = (json == null) ? "null" : json.replaceAll("\\s+", " ").trim();
-            if (preview.length() > 200) preview = preview.substring(0, 200) + "...";
-            System.out.println("[VectorsWService] Received JSON preview: " + preview);
+//            String preview = (json == null) ? "null" : json.replaceAll("\\s+", " ").trim();
+//            if (preview.length() > 200) preview = preview.substring(0, 200) + "...";
+//            System.out.println("[VectorsWService] Received JSON preview: " + preview);
             return WrapperParsers.parseVec(json);
         });
     }

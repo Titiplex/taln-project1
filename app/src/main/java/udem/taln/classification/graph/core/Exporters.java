@@ -1,6 +1,7 @@
 package udem.taln.classification.graph.core;
 
 import org.jgrapht.Graph;
+import org.jgrapht.graph.AsSubgraph;
 import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.nio.Attribute;
 import org.jgrapht.nio.DefaultAttribute;
@@ -10,9 +11,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 public class Exporters {
@@ -63,6 +62,34 @@ public class Exporters {
                 w.printf("%s,%s,%.6f%n", q(u), q(v), g.getEdgeWeight(e));
             }
         }
+    }
+
+    public static void exportLargestCommunities(
+            Graph<String, DefaultWeightedEdge> g,
+            Map<String, Integer> comm,
+            int howMany,
+            java.util.function.Function<String, Map<String, String>> attrsProvider
+    ) throws IOException {
+        Map<Integer, List<String>> byC = new HashMap<>();
+        for (var e : comm.entrySet()) byC.computeIfAbsent(e.getValue(), c -> new ArrayList<>()).add(e.getKey());
+
+        var ordered = byC.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
+                .limit(howMany)
+                .toList();
+
+        int rank = 0;
+        for (var entry : ordered) {
+            var nodes = new LinkedHashSet<>(entry.getValue());
+            var sub = new AsSubgraph<>(g, nodes);
+            Exporters.exportGraphML(sub, collectAttrs(nodes, attrsProvider), new File("data/graphs/graph-comm-" + (rank++) + ".graphml"));
+        }
+    }
+
+    private static Map<String, Map<String, String>> collectAttrs(Set<String> nodes, java.util.function.Function<String, Map<String, String>> attrsProvider) {
+        Map<String, Map<String, String>> m = new HashMap<>();
+        for (String id : nodes) m.put(id, attrsProvider.apply(id));
+        return m;
     }
 
     private static String q(String s) {
