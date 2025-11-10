@@ -1,3 +1,6 @@
+numpy
+scikit-learn
+datasets
 sentence-transformers
 pydantic
 acl-anthology==0.5.3
